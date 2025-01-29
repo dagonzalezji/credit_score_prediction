@@ -1,3 +1,5 @@
+import os
+
 import streamlit as st
 import numpy as np
 import tensorflow as tf
@@ -62,14 +64,15 @@ if st.sidebar.button("Predecir"):
     data_processed = preprocessor.transform(df)
     predictions = model.predict(data_processed).ravel()
     y_pred_proba = (predictions > 0.5).astype(int)
+    y_scores = joblib.load(os.path.join('data', 'output', 'loan_scores.pkl'))
     credit_score = probability_to_score(y_pred_proba[0])
 
     # Mostrar resultado
     st.subheader(f"Puntaje de Crédito Estimado: {credit_score:.2f}")
 
     # Generar gráfico
-    buffer = plot_credit_score_distribution([credit_score], credit_score)
+    buffer = plot_credit_score_distribution(y_scores, credit_score)
     image_data = buffer.getvalue()
     buffer.close()
 
-    st.image(image_data, caption="Distribución de Puntajes de Crédito", use_column_width=True)
+    st.image(image_data, caption="Distribución de Puntajes de Crédito", use_container_width=True)
