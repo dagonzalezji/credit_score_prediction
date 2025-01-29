@@ -3,8 +3,7 @@ import numpy as np
 import tensorflow as tf
 import joblib
 import pandas as pd
-import base64
-from io import BytesIO
+
 from utils.create_and_save_plot import plot_credit_score_distribution
 
 # Cargar modelo y preprocesador
