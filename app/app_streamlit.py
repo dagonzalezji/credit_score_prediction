@@ -7,6 +7,8 @@ import joblib
 import pandas as pd
 
 from utils.create_and_save_plot import plot_credit_score_distribution
+from utils.calculate_probability_prediction import probability_to_score_v3
+from utils.category_classification import credit_score_range_classification
 
 # Cargar modelo y preprocesador
 model = tf.keras.models.load_model("app/models/loan_model_2.h5")
@@ -46,8 +48,69 @@ purpose = st.sidebar.selectbox("Purpose", ["debt_consolidation", "credit_card", 
 grade = st.sidebar.selectbox("Grade", ["A", "B", "C", "D", "E", "F", "G"])
 initial_list_status = st.sidebar.selectbox("Initial List Status", ["w", "f"])
 
+# Tamaño de la muestra
+#n_samples = 1000
+
+# Generar datos numéricos
+# numeric_data = {
+#     "recoveries": np.random.uniform(0, 5000, n_samples),
+#     "collection_recovery_fee": np.random.uniform(0, 1000, n_samples),
+#     "total_rec_prncp": np.random.uniform(1000, 35000, n_samples),
+#     "out_prncp": np.random.uniform(0, 35000, n_samples),
+#     "last_pymnt_amnt": np.random.uniform(0, 1000, n_samples),
+#     "total_pymnt": np.random.uniform(1000, 40000, n_samples),
+#     "installment": np.random.uniform(100, 1500, n_samples),
+#     "funded_amnt_inv": np.random.uniform(1000, 35000, n_samples),
+#     "loan_amnt": np.random.uniform(1000, 35000, n_samples),
+#     "total_rec_int": np.random.uniform(0, 8000, n_samples),
+#     "total_rec_late_fee": np.random.uniform(0, 100, n_samples),
+#     "int_rate": np.random.uniform(5, 25, n_samples),
+#     "inq_last_6mths": np.random.randint(0, 10, n_samples),
+#     "open_acc": np.random.randint(1, 30, n_samples),
+# }
+#
+# # Generar datos categóricos
+# categorical_data = {
+#     "term": np.random.choice(["36 months", "60 months"], n_samples),
+#     "emp_length": np.random.choice(
+#         [
+#             "< 1 year",
+#             "1 year",
+#             "2 years",
+#             "3 years",
+#             "4 years",
+#             "5 years",
+#             "6 years",
+#             "7 years",
+#             "8 years",
+#             "9 years",
+#             "10+ years",
+#         ],
+#         n_samples,
+#     ),
+#     "home_ownership": np.random.choice(
+#         ["RENT", "OWN", "MORTGAGE", "OTHER"], n_samples
+#     ),
+#     "purpose": np.random.choice(
+#         [
+#             "debt_consolidation",
+#             "credit_card",
+#             "home_improvement",
+#             "small_business",
+#             "major_purchase",
+#             "other",
+#         ],
+#         n_samples,
+#     ),
+#     "grade": np.random.choice(["A", "B", "C", "D", "E", "F", "G"], n_samples),
+#     "initial_list_status": np.random.choice(["w", "f"], n_samples),
+# }
+#
+# # Crear DataFrame
+# df = pd.DataFrame({**numeric_data, **categorical_data})
+
 if st.sidebar.button("Predecir"):
-    # Preparar datos
+    #Preparar datos
     input_array = np.array([[recoveries, collection_recovery_fee, total_rec_prncp, out_prncp, last_pymnt_amnt,
                               total_pymnt, installment, funded_amnt_inv, loan_amnt, total_rec_int,
                               total_rec_late_fee, int_rate, inq_last_6mths, open_acc, term, emp_length,
@@ -62,13 +125,19 @@ if st.sidebar.button("Predecir"):
 
     # Preprocesar y predecir
     data_processed = preprocessor.transform(df)
+    print(df)
     predictions = model.predict(data_processed).ravel()
-    y_pred_proba = (predictions > 0.5).astype(int)
+    print(predictions)
+    #y_pred_proba = (predictions > 0.5).astype(int)
     y_scores = joblib.load(os.path.join('data', 'output', 'loan_scores.pkl'))
-    credit_score = probability_to_score(y_pred_proba[0])
+    credit_score = probability_to_score_v3(predictions[0])
 
     # Mostrar resultado
-    st.subheader(f"Puntaje de Crédito Estimado: {credit_score:.2f}")
+    color = credit_score_range_classification(credit_score)
+    st.markdown(
+        f'<h2 style="color:{color};">Puntaje de Crédito Estimado: {credit_score:.2f}</h2>',
+        unsafe_allow_html=True
+    )
 
     # Generar gráfico
     buffer = plot_credit_score_distribution(y_scores, credit_score)
