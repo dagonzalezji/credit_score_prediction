@@ -1,38 +1,48 @@
 import numpy as np
 
 
-def probability_to_score_v3(prob, base_score=300, max_score=850, pdo=50, midpoint=0.025, scale=0.5):
+def probability_to_score_v3(prob, base_score=300, max_score=850, threshold=0.326,
+                                   expansion_factor_low=3, expansion_factor_high=0.7):
     """
-    Convierte probabilidades en puntajes de crédito con ajustes para reducir la concentración en los extremos.
+    Convierte probabilidades en puntajes de crédito con expansión no lineal
+    para distribuir mejor en los extremos.
 
     Args:
         prob (float): Probabilidad de default.
-        base_score (int): Puntaje base (ej. 300).
-        max_score (int): Puntaje máximo (ej. 850).
-        pdo (int): Puntos para doblar las probabilidades.
-        midpoint (float): Punto de inflexión para la transformación logística.
-        scale (float): Escala de la transformación logística.
+        base_score (int): Puntaje base.
+        max_score (int): Puntaje máximo.
+        threshold (float): Valor de corte óptimo.
+        expansion_factor_low (float): Factor para expandir la parte baja del rango.
+        expansion_factor_high (float): Factor para expandir la parte alta del rango.
 
     Returns:
-        score (float): Puntaje de crédito ajustado al rango.
+        score (float): Puntaje de crédito ajustado.
     """
-    # Clipping para evitar problemas numéricos
-    prob = np.clip(prob, 1e-6, 1 - 1e-6)
+    # Invertir la probabilidad para que mayor valor sea mejor score
+    inverted_prob = 1 - prob
 
-    # Transformación logística para una distribución más uniforme
-    transformed_prob = 1 / (1 + np.exp(-(np.log(prob / (1 - prob)) - np.log(midpoint / (1 - midpoint))) / scale))
+    # Punto de corte invertido
+    inverted_threshold = 1 - threshold
 
-    # Calcular odds con la probabilidad transformada
-    odds = (1 - transformed_prob) / transformed_prob
+    # Determinar si es un score alto o bajo
+    if inverted_prob >= inverted_threshold:  # Buenos clientes
+        # Normalizar la probabilidad en el rango de buenos
+        normalized = (inverted_prob - inverted_threshold) / (1 - inverted_threshold)
+        # Aplicar expansión no lineal
+        transformed = normalized ** expansion_factor_high
+        # Mapear al rango superior
+        mid_score = 550  # Punto medio del rango
+        score = mid_score + (max_score - mid_score) * transformed
+    else:  # Malos clientes
+        # Normalizar la probabilidad en el rango de malos
+        normalized = inverted_prob / inverted_threshold
+        # Aplicar expansión no lineal para los scores bajos
+        transformed = normalized ** expansion_factor_low
+        # Mapear al rango inferior
+        mid_score = 550  # Punto medio del rango
+        score = base_score + (mid_score - base_score) * transformed
 
-    # Calcular factor y offset
-    factor = pdo / np.log(2)
-    offset = base_score + (max_score - base_score) / 2  # Centrar el rango
-
-    # Calcular puntaje crudo
-    raw_score = offset - factor * np.log(odds)
-
-    # Normalizar el puntaje dentro del rango [base_score, max_score]
-    score = np.clip(raw_score, base_score, max_score)
+    # Asegurar que el score esté dentro del rango permitido
+    score = np.clip(score, base_score, max_score)
 
     return score
